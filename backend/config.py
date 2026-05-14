@@ -93,11 +93,15 @@ class Settings(BaseSettings):
 
     @field_validator("admin_ids", mode="before")
     @classmethod
-    def parse_admin_ids(cls, value: str | list[int] | None) -> list[int]:
+    def parse_admin_ids(cls, value: str | int | list[int] | tuple[int, ...] | None) -> list[int]:
         if value is None:
             return []
+        if isinstance(value, int):
+            return [value]
+        if isinstance(value, tuple):
+            return [int(item) for item in value]
         if isinstance(value, list):
-            return value
+            return [int(item) for item in value]
         return [int(item.strip()) for item in value.split(",") if item.strip()]
 
     @field_validator("support_chat_id", mode="before")
