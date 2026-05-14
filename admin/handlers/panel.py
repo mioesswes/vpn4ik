@@ -1,4 +1,5 @@
 import re
+from html import escape
 
 from aiogram import F, Router
 from aiogram.types import CallbackQuery, Message
@@ -57,7 +58,9 @@ async def reset_user_vpn(message: Message) -> None:
         return
     telegram_id = int(match.group(1))
     config = await get_container().users.reset_config(telegram_id=telegram_id)
-    await message.answer(f"VPN конфиг перевыпущен для {telegram_id}.\n\n`{config}`", parse_mode="Markdown")
+    await message.answer(
+        f"VPN конфиг перевыпущен для {telegram_id}.\n\n<code>{escape(config)}</code>"
+    )
 
 
 @router.message(F.text.regexp(NODES_COMMAND_RE))

@@ -1,9 +1,12 @@
+import logging
 from urllib.parse import quote
 
 from backend.config import Settings
 from backend.enums import NodeLocation
 from backend.node_config import NodeRuntimeConfig, build_node_configs
 from xray.panel_client import XrayPanelClient
+
+logger = logging.getLogger(__name__)
 
 
 class XrayService:
@@ -25,22 +28,32 @@ class XrayService:
         return f"tg-{user_id}"
 
     async def ensure_client(self, user_id: int, location: NodeLocation, device_limit: int) -> None:
-        client = self.get_panel_client(location)
-        await client.upsert_client(
-            email=self.build_client_email(user_id),
-            uuid=self.settings.xray_shared_uuid,
-            limit_ip=device_limit,
-        )
+        try:
+            client = self.get_panel_client(location)
+            await client.upsert_client(
+                email=self.build_client_email(user_id),
+                uuid=self.settings.xray_shared_uuid,
+                limit_ip=device_limit,
+            )
+        except Exception as exc:
+            logger.warning(
+                "3x-ui client sync failed on ensure_client for user=%s location=%s: %s",
+                user_id,
+                location.value,
+                exc,
+            )
 
     async def delete_client(self, user_id: int, location: NodeLocation) -> None:
-        client = self.get_panel_client(location)
         try:
+            client = self.get_panel_client(location)
             await client.delete_client(email=self.build_client_email(user_id))
-        except ValueError as exc:
-            message = str(exc).lower()
-            if "not found" in message or "failed to find" in message or "email" in message:
-                return
-            raise
+        except Exception as exc:
+            logger.warning(
+                "3x-ui client sync failed on delete_client for user=%s location=%s: %s",
+                user_id,
+                location.value,
+                exc,
+            )
 
     async def reprovision_client(
         self,
@@ -76,7 +89,13 @@ class XrayService:
             f"#{label}"
         )
 
-    async def switch_user_location(self, user_id: int, old_location: NodeLocation, location: NodeLocation, device_limit: int) -> str:
+    async def switch_user_location(
+        self,
+        user_id: int,
+        old_location: NodeLocation,
+        location: NodeLocation,
+        device_limit: int,
+    ) -> str:
         await self.reprovision_client(
             user_id=user_id,
             old_location=old_location,
